@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Shine — Daily Feedback Form</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+:root{
+  --navy-900:#081328;
+  --navy-800:#0E1E3D;
+  --navy-700:#17335E;
+  --navy-600:#204676;
+  --gold:#C8A356;
+  --gold-dark:#a9843c;
+  --paper:#FFFFFF;
+  --paper-soft:#F3F5FA;
+  --ink:#182238;
+  --ink-soft:#4A5670;
+  --line:#D8DEEA;
+  --danger:#B3432B;
+  --good:#2E7D5B;
+}
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  font-family:'Inter',system-ui,sans-serif;
+  background:var(--paper-soft);
+  color:var(--ink);
+  min-height:100vh;
+}
+h1,h2,h3,.brand{font-family:'Fraunces',serif;}
+a{color:inherit;}
+button{font-family:inherit;cursor:pointer;}
+input,select,textarea{font-family:inherit;}
+::selection{background:var(--gold);color:var(--navy-900);}
+
+/* ---------- top bar ---------- */
+.topbar{
+  background:var(--navy-900);
+  color:#fff;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:14px 28px;
+  box-shadow:0 2px 10px rgba(8,19,40,.25);
+}
+.brand-wrap{display:flex;align-items:baseline;gap:10px;}
+.brand{font-size:22px;font-weight:600;letter-spacing:.5px;color:#fff;}
+.brand span{color:var(--gold);}
+.subtitle{font-size:12.5px;color:#B9C4DA;font-weight:500;}
+.topbar-right{display:flex;align-items:center;gap:14px;font-size:14px;}
+.who{color:#CDD8EC;}
+.who b{color:#fff;}
+
+/* ---------- buttons ---------- */
+.btn{
+  border:none;border-radius:7px;padding:9px 16px;font-size:14px;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;transition:.15s;white-space:nowrap;
+}
+.btn-primary{background:var(--gold);color:var(--navy-900);}
+.btn-primary:hover{background:var(--gold-dark);}
+.btn-navy{background:var(--navy-700);color:#fff;}
+.btn-navy:hover{background:var(--navy-600);}
+.btn-ghost{background:transparent;color:var(--navy-800);border:1.5px solid var(--line);}
+.btn-ghost:hover{border-color:var(--navy-700);}
+.btn-danger{background:transparent;color:var(--danger);border:1.5px solid #E7C7BD;}
+.btn-danger:hover{background:#FBEEEA;}
+.btn-sm{padding:6px 11px;font-size:12.5px;border-radius:6px;}
+.btn-icon{padding:7px 9px;border-radius:6px;}
+.btn:disabled{opacity:.45;cursor:not-allowed;}
+.link-btn{background:none;border:none;color:var(--navy-700);font-weight:600;text-decoration:underline;padding:0;font-size:14px;}
+
+/* ---------- layout shells ---------- */
+.page{max-width:1100px;margin:0 auto;padding:32px 24px 80px;}
+.center-page{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(160deg,var(--navy-900),var(--navy-700));padding:20px;}
+.auth-card{
+  background:#fff;border-radius:16px;padding:40px 38px;width:380px;max-width:100%;
+  box-shadow:0 30px 60px rgba(0,0,0,.35);
+}
+.auth-brand{text-align:center;margin-bottom:26px;}
+.auth-brand .brand{color:var(--navy-900);font-size:30px;}
+.auth-brand .brand span{color:var(--gold-dark);}
+.auth-brand .subtitle{color:var(--ink-soft);}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12.5px;font-weight:600;color:var(--ink-soft);margin-bottom:6px;text-transform:none;}
+.field input,.field select,.field textarea{
+  width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:8px;font-size:14.5px;color:var(--ink);
+  background:#fff;
+}
+.field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--navy-600);}
+.err-msg{background:#FBEEEA;color:var(--danger);border:1px solid #E7C7BD;padding:9px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+.ok-msg{background:#EAF6EF;color:var(--good);border:1px solid #BFE3CC;padding:9px 12px;border-radius:8px;font-size:13px;margin-bottom:14px;}
+.hint{font-size:12.5px;color:var(--ink-soft);margin-top:8px;text-align:center;}
+
+/* ---------- dashboard ---------- */
+.section-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;flex-wrap:wrap;gap:10px;}
+.section-head h2{margin:0;font-size:22px;color:var(--navy-900);}
+.folder-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;}
+.folder-card{
+  background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;position:relative;
+  transition:.15s;
+}
+.folder-card:hover{box-shadow:0 8px 22px rgba(15,30,60,.10);border-color:var(--navy-600);}
+.folder-icon{width:38px;height:38px;border-radius:9px;background:var(--navy-900);color:var(--gold);
+  display:flex;align-items:center;justify-content:center;font-size:18px;margin-bottom:12px;}
+.folder-name{font-weight:700;font-size:16px;color:var(--navy-900);margin-bottom:4px;cursor:pointer;}
+.folder-meta{font-size:12.5px;color:var(--ink-soft);margin-bottom:12px;}
+.folder-actions{display:flex;gap:6px;}
+.empty-state{
+  border:1.5px dashed var(--line);border-radius:14px;padding:50px 20px;text-align:center;color:var(--ink-soft);
+}
+.empty-state .big{font-size:17px;color:var(--navy-900);font-weight:600;margin-bottom:6px;}
+
+.breadcrumb{font-size:13px;color:var(--ink-soft);margin-bottom:6px;}
+.breadcrumb button{background:none;border:none;color:var(--navy-700);font-weight:600;cursor:pointer;padding:0;font-size:13px;}
+
+.form-list{display:flex;flex-direction:column;gap:10px;}
+.form-row{
+  background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+}
+.form-row-main{cursor:pointer;flex:1;min-width:180px;}
+.form-row-title{font-weight:700;color:var(--navy-900);font-size:15px;}
+.form-row-sub{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+.form-row-actions{display:flex;gap:6px;flex-wrap:wrap;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:11px;font-weight:700;background:var(--paper-soft);color:var(--navy-700);border:1px solid var(--line);}
+
+/* ---------- modal ---------- */
+.modal-backdrop{
+  position:fixed;inset:0;background:rgba(8,19,40,.55);display:flex;align-items:center;justify-content:center;z-index:1000;padding:20px;
+}
+.modal{background:#fff;border-radius:14px;padding:28px;width:440px;max-width:100%;max-height:90vh;overflow:auto;}
+.modal h3{margin:0 0 14px;color:var(--navy-900);font-size:19px;}
+.modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+.copy-box{
+  background:var(--paper-soft);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:13px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;word-break:break-all;
+}
+.copy-box .val{font-weight:700;color:var(--navy-900);}
+.pw-display{font-size:26px;font-weight:700;letter-spacing:3px;color:var(--navy-900);background:var(--paper-soft);
+  border:1.5px dashed var(--gold-dark);border-radius:10px;padding:14px;text-align:center;margin-bottom:10px;}
+
+/* ---------- FORM (Daily Feedback sheet) ---------- */
+.doc-toolbar{
+  position:sticky;top:0;background:var(--navy-900);color:#fff;padding:12px 24px;display:flex;align-items:center;
+  justify-content:space-between;z-index:50;flex-wrap:wrap;gap:10px;box-shadow:0 4px 14px rgba(0,0,0,.2);
+}
+.doc-toolbar .left{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.doc-toolbar .actions{display:flex;gap:8px;flex-wrap:wrap;}
+.sheet-wrap{max-width:960px;margin:26px auto 90px;padding:0 18px;}
+.sheet{background:#fff;border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:0 4px 18px rgba(15,30,60,.06);}
+.sheet-header{background:var(--navy-900);color:#fff;padding:22px 26px;}
+.sheet-header h1{margin:0 0 4px;font-size:22px;color:#fff;}
+.sheet-header .sub{color:var(--gold);font-size:13px;font-weight:600;letter-spacing:.3px;}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:0;border-bottom:1px solid var(--line);}
+.meta-cell{padding:14px 18px;border-right:1px solid var(--line);border-top:1px solid var(--line);}
+.meta-cell:nth-child(2n){border-right:none;}
+.meta-cell label{display:block;font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--navy-700);margin-bottom:6px;}
+.meta-cell input{width:100%;border:none;border-bottom:1.5px solid var(--line);padding:4px 2px;font-size:15px;background:transparent;}
+.meta-cell input:focus{outline:none;border-color:var(--navy-700);}
+
+.legend{background:var(--paper-soft);padding:12px 18px;font-size:12.5px;color:var(--ink-soft);border-bottom:1px solid var(--line);}
+.legend b{color:var(--navy-800);}
+
+.day-block{border-bottom:1px solid var(--line);page-break-inside:avoid;}
+.day-title-row{background:var(--navy-700);color:#fff;padding:10px 18px;display:flex;align-items:center;justify-content:space-between;}
+.day-title-row .dname{font-weight:700;font-size:14.5px;letter-spacing:.3px;}
+.day-title-row input[type=date]{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.4);color:#fff;border-radius:5px;padding:4px 8px;font-size:12.5px;}
+.day-title-row .dtext{font-size:13px;color:#EFE7D2;}
+
+table.grid{width:100%;border-collapse:collapse;}
+table.grid th{
+  background:var(--paper-soft);color:var(--navy-800);font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;
+  padding:8px 10px;border:1px solid var(--line);text-align:left;
+}
+table.grid td{border:1px solid var(--line);padding:6px 8px;vertical-align:top;}
+table.grid td input, table.grid td select, table.grid td textarea{
+  width:100%;border:none;background:transparent;font-size:13px;padding:4px 2px;color:var(--ink);resize:vertical;
+}
+table.grid td input:focus, table.grid td select:focus, table.grid td textarea:focus{outline:none;background:#FBF9F1;}
+.col-code{width:70px;text-align:center;}
+.comment-row{padding:12px 18px;}
+.comment-row label{display:block;font-size:11.5px;font-weight:700;color:var(--navy-700);text-transform:uppercase;margin-bottom:6px;}
+.comment-row textarea{width:100%;border:1.5px solid var(--line);border-radius:7px;padding:8px 10px;font-size:13.5px;min-height:44px;}
+
+.section-title{
+  background:var(--navy-900);color:#fff;padding:12px 18px;font-weight:700;font-size:14.5px;letter-spacing:.3px;
+}
+.goal-table td{padding:10px 12px;}
+.goal-label{font-weight:700;color:var(--navy-800);font-size:13px;white-space:nowrap;background:var(--paper-soft);}
+.goal-label small{display:block;font-weight:500;color:var(--ink-soft);font-size:11.5px;}
+
+.summary-block{padding:16px 20px;border-bottom:1px solid var(--line);}
+.summary-block h4{margin:0 0 10px;color:var(--navy-800);font-size:14.5px;}
+.summary-row{margin-bottom:10px;}
+.summary-row label{display:block;font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;margin-bottom:5px;}
+.summary-row textarea{width:100%;border:1.5px solid var(--line);border-radius:7px;padding:8px 10px;font-size:13.5px;min-height:52px;}
+.level-options{display:flex;gap:16px;flex-wrap:wrap;}
+.level-options label{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);text-transform:none;font-weight:500;}
+.level-options input{width:auto;}
+
+.static-val{font-size:13.5px;color:var(--ink);white-space:pre-wrap;min-height:1.2em;}
+.static-title{font-weight:700;color:var(--navy-900);}
+
+.print-only{display:none;}
+@media print{
+  .doc-toolbar,.topbar{display:none!important;}
+}
+
+/* password gate for parent view */
+.gate-box{width:400px;max-width:100%;}
+.gate-icon{width:56px;height:56px;border-radius:50%;background:var(--navy-900);color:var(--gold);display:flex;align-items:center;justify-content:center;font-size:24px;margin:0 auto 16px;}
+
+.toast{
+  position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--navy-900);color:#fff;padding:12px 20px;
+  border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.3);z-index:2000;
+}
+
+.small-select{border:1.5px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12.5px;}
+
+.spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:inline-block;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.tag-mini{font-size:11px;color:var(--ink-soft);}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+/* =========================================================================
+   SHINE — Daily Feedback Form
+   Storage model (all shared=true so every LSA / parent shares one dataset):
+     shine:accounts        -> {admin:{username,password}, lsas:[{username,password,name}]}
+     shine:userdata:<user> -> {folders:[{id, studentName, forms:[{id, weekBeginning, createdAt, data, viewLink}]}]}
+     shine:linkindex       -> {<token>: {username, folderId, formId}}
+   Session (personal, per browser) -> shine:session : username string
+   ========================================================================= */
+
+/* Accounts (90 LSA logins + admin) are seeded and stored server-side in KV — see functions/api/login.js */
+
+let STATE = {
+  screen: 'loading',      // loading | login | dashboard | folder | form | parentGate | parentView
+  session: null,          // {username, name, isAdmin}
+  accounts: null,
+  userData: null,         // current logged-in user's data object
+  currentFolderId: null,
+  currentFormId: null,
+  parentToken: null,
+  parentUserData: null,
+  parentFormRef: null,    // {folder, form}
+  toast: null,
+};
+
+const DAY_KEYS = ['mon','tue','wed','thu','fri'];
+const DAY_LABELS = {mon:'Monday',tue:'Tuesday',wed:'Wednesday',thu:'Thursday',fri:'Friday'};
+const GOAL_DEFS = [
+  {key:'literacy', title:'Goal 1', sub:'Literacy / English'},
+  {key:'numeracy', title:'Goal 2', sub:'Numeracy / Maths'},
+  {key:'semh', title:'Goal 3', sub:'Social, emotional and behavioural'},
+];
+
+/* ---------------- utility ---------------- */
+function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+function genPassword(len){
+  const chars='ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  let s=''; for(let i=0;i<len;i++) s+=chars[Math.floor(Math.random()*chars.length)];
+  return s;
+}
+function esc(s){
+  if(s===undefined||s===null) return '';
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function fmtDate(d){
+  if(!d) return '';
+  try{ const dt=new Date(d+'T00:00:00'); return dt.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}); }catch(e){return d;}
+}
+function showToast(msg){
+  STATE.toast = msg;
+  render();
+  setTimeout(()=>{ STATE.toast=null; render(); }, 2600);
+}
+function setPath(obj, path, value){
+  const parts = path.split('.');
+  let cur = obj;
+  for(let i=0;i<parts.length-1;i++){
+    const p = parts[i];
+    if(cur[p]===undefined) cur[p] = /^\d+$/.test(parts[i+1]) ? [] : {};
+    cur = cur[p];
+  }
+  cur[parts[parts.length-1]] = value;
+}
+function getPath(obj, path){
+  const parts = path.split('.');
+  let cur = obj;
+  for(const p of parts){
+    if(cur===undefined||cur===null) return undefined;
+    cur = cur[p];
+  }
+  return cur;
+}
+
+/* ---------------- blank form data ---------------- */
+function blankForm(){
+  const days = {};
+  DAY_KEYS.forEach(k=>{
+    days[k] = { date:'', rows: Array.from({length:7},()=>({lesson:'',activity:'',code:''})), comment:'' };
+  });
+  return {
+    pupil:'', weekBeginning:'', classYear:'', lsaNames:'',
+    days,
+    goals: GOAL_DEFS.map(()=>({goalText:'', successCriteria:''})),
+    evidence: Array.from({length:10},()=>({date:'',goal:'',context:'',evidence:'',support:''})),
+    summary: GOAL_DEFS.map(()=>({progress:'', level:'', nextSteps:''})),
+    behaviour: {strengths:'', barriers:'', support:''}
+  };
+}
+
+/* ---------------- API helpers (Cloudflare Pages Functions backend) ---------------- */
+const API_BASE = '/api';
+function authHeaders(){
+  return {'Content-Type':'application/json', 'Authorization': 'Bearer '+(STATE.session ? STATE.session.token : '')};
+}
+async function apiLogin(username,password){
+  const res = await fetch(API_BASE+'/login', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,password})});
+  return res.json();
+}
+async function apiGetUserData(){
+  const res = await fetch(API_BASE+'/userdata', {headers:authHeaders()});
+  return res.json();
+}
+async function apiSaveUserData(data){
+  const res = await fetch(API_BASE+'/userdata', {method:'POST', headers:authHeaders(), body:JSON.stringify(data)});
+  return res.json();
+}
+async function apiGenerateLink(folderId, formId, regenerate){
+  const res = await fetch(API_BASE+'/link/generate', {method:'POST', headers:authHeaders(), body:JSON.stringify({folderId, formId, regenerate:!!regenerate})});
+  return res.json();
+}
+async function apiResolveParent(token, password){
+  const res = await fetch(API_BASE+'/parent/resolve', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({token, password})});
+  return res.json();
+}
+async function apiAdminGetAccounts(){
+  const res = await fetch(API_BASE+'/admin/accounts', {headers:authHeaders()});
+  return res.json();
+}
+async function apiAdminUpdate(action, index, name){
+  const res = await fetch(API_BASE+'/admin/accounts', {method:'POST', headers:authHeaders(), body:JSON.stringify({action, index, name})});
+  return res.json();
+}
+
+/* ---------------- session persistence (real browser -> localStorage is fine here) ---------------- */
+function saveSessionLocal(session){ try{ localStorage.setItem('shine_session', JSON.stringify(session)); }catch(e){} }
+function loadSessionLocal(){ try{ return JSON.parse(localStorage.getItem('shine_session')); }catch(e){ return null; } }
+function clearSessionLocal(){ try{ localStorage.removeItem('shine_session'); }catch(e){} }
+
+/* ---------------- init / routing ---------------- */
+async function init(){
+  const params = new URLSearchParams(location.search);
+  const token = params.get('view');
+  if(token){
+    STATE.parentToken = token;
+    STATE.screen = 'parentGate';
+    render();
+    return;
+  }
+  const sess = loadSessionLocal();
+  if(sess && sess.token){
+    STATE.session = sess;
+    if(sess.isAdmin){
+      const accRes = await apiAdminGetAccounts();
+      if(accRes.ok){ STATE.accounts = {lsas:accRes.lsas}; STATE.screen='admin'; }
+      else { clearSessionLocal(); STATE.screen='login'; }
+    } else {
+      const udRes = await apiGetUserData();
+      if(udRes.ok){ STATE.userData = udRes.data; STATE.screen='dashboard'; }
+      else { clearSessionLocal(); STATE.screen='login'; }
+    }
+  } else {
+    STATE.screen = 'login';
+  }
+  render();
+}
+
+/* ---------------- auth actions ---------------- */
+async function doLogin(username, password){
+  const res = await apiLogin((username||'').trim(), password);
+  if(!res.ok){
+    STATE._loginError = res.error || 'Login failed.';
+    render();
+    return;
+  }
+  STATE.session = {token:res.token, username:res.username, name:res.name, isAdmin:res.isAdmin};
+  saveSessionLocal(STATE.session);
+  STATE._loginError = null;
+  if(res.isAdmin){
+    const accRes = await apiAdminGetAccounts();
+    STATE.accounts = {lsas: accRes.lsas || []};
+    STATE.screen = 'admin';
+  } else {
+    const udRes = await apiGetUserData();
+    STATE.userData = udRes.data || {folders:[]};
+    STATE.screen = 'dashboard';
+  }
+  render();
+}
+async function doLogout(){
+  clearSessionLocal();
+  STATE.session = null; STATE.userData=null; STATE.currentFolderId=null; STATE.currentFormId=null;
+  STATE.screen = 'login';
+  render();
+}
+
+/* ---------------- folder / form actions ---------------- */
+async function createFolder(name){
+  name = (name||'').trim();
+  if(!name) return;
+  STATE.userData.folders.push({id:uid(), studentName:name, forms:[]});
+  await apiSaveUserData(STATE.userData);
+  render();
+}
+async function renameFolder(id, name){
+  const f = STATE.userData.folders.find(x=>x.id===id);
+  if(f && name.trim()){ f.studentName = name.trim(); await apiSaveUserData(STATE.userData); render(); }
+}
+async function deleteFolder(id){
+  STATE.userData.folders = STATE.userData.folders.filter(x=>x.id!==id);
+  await apiSaveUserData(STATE.userData);
+  render();
+}
+async function createForm(folderId){
+  const folder = STATE.userData.folders.find(f=>f.id===folderId);
+  const form = { id:uid(), weekBeginning:'', createdAt:Date.now(), data: blankForm(), viewLink:null };
+  form.data.lsaNames = STATE.session.name;
+  form.data.pupil = folder.studentName;
+  folder.forms.push(form);
+  await apiSaveUserData(STATE.userData);
+  STATE.currentFolderId = folderId;
+  STATE.currentFormId = form.id;
+  STATE.screen = 'form';
+  render();
+}
+async function deleteForm(folderId, formId){
+  const folder = STATE.userData.folders.find(f=>f.id===folderId);
+  folder.forms = folder.forms.filter(x=>x.id!==formId);
+  await apiSaveUserData(STATE.userData);
+  render();
+}
+async function moveForm(fromFolderId, formId, toFolderId){
+  if(fromFolderId===toFolderId) return;
+  const from = STATE.userData.folders.find(f=>f.id===fromFolderId);
+  const to = STATE.userData.folders.find(f=>f.id===toFolderId);
+  const idx = from.forms.findIndex(f=>f.id===formId);
+  const [form] = from.forms.splice(idx,1);
+  to.forms.push(form);
+  await apiSaveUserData(STATE.userData);
+  render();
+  showToast('Form moved to '+to.studentName);
+}
+
+function currentFolder(){ return STATE.userData.folders.find(f=>f.id===STATE.currentFolderId); }
+function currentForm(){ const fo = currentFolder(); return fo ? fo.forms.find(f=>f.id===STATE.currentFormId) : null; }
+
+async function harvestAndSaveForm(){
+  const container = document.getElementById('sheetForm');
+  if(!container) return;
+  const form = currentForm();
+  const data = form.data;
+  container.querySelectorAll('[data-field]').forEach(el=>{
+    const path = el.getAttribute('data-field');
+    if(el.type==='radio'){
+      if(el.checked) setPath(data, path, el.value);
+    } else {
+      setPath(data, path, el.value);
+    }
+  });
+  const wb = container.querySelector('[data-field="weekBeginning"]');
+  if(wb) form.weekBeginning = wb.value;
+  await apiSaveUserData(STATE.userData);
+  showToast('Saved');
+}
+
+/* ---------------- parent link ---------------- */
+async function generateOrShowLink(folderId, formId){
+  await harvestAndSaveForm();
+  const res = await apiGenerateLink(folderId, formId, false);
+  if(!res.ok){ showToast(res.error||'Could not generate link'); return; }
+  const folder = STATE.userData.folders.find(f=>f.id===folderId);
+  const form = folder.forms.find(f=>f.id===formId);
+  form.viewLink = {token:res.token, password:res.password};
+  STATE._modal = {type:'link', folderId, formId, link:form.viewLink};
+  render();
+}
+async function regenerateLink(folderId, formId){
+  const res = await apiGenerateLink(folderId, formId, true);
+  if(!res.ok){ showToast(res.error||'Could not generate link'); return; }
+  const folder = STATE.userData.folders.find(f=>f.id===folderId);
+  const form = folder.forms.find(f=>f.id===formId);
+  form.viewLink = {token:res.token, password:res.password};
+  STATE._modal = {type:'link', folderId, formId, link:form.viewLink};
+  render();
+  showToast('New link generated — old link disabled');
+}
+function buildLinkUrl(token){
+  const base = location.origin + location.pathname;
+  return base + '?view=' + token;
+}
+async function copyText(text){
+  try{ await navigator.clipboard.writeText(text); showToast('Copied to clipboard'); }
+  catch(e){ showToast('Copy failed — please select manually'); }
+}
+
+/* ---------------- parent gate ---------------- */
+async function tryParentPassword(pw){
+  const res = await apiResolveParent(STATE.parentToken, pw);
+  if(!res.ok){
+    STATE._gateError = res.error === 'Link not found'
+      ? 'This link is invalid or has been replaced with a newer one. Please ask the LSA to resend the current link.'
+      : 'Incorrect password. Please check with the LSA who sent you this link.';
+    render();
+    return;
+  }
+  STATE.parentFormRef = { folder:{studentName:res.studentName}, form:{data:res.data, weekBeginning:res.weekBeginning, id:'parent'} };
+  STATE.screen = 'parentView';
+  render();
+}
+
+/* ---------------- PDF / ZIP export ---------------- */
+function renderStaticSheet(data, opts){
+  opts = opts || {};
+  const daysHtml = DAY_KEYS.map(k=>{
+    const d = data.days[k];
+    const rows = d.rows.map(r=>`
+      <tr>
+        <td>${esc(r.lesson)}</td>
+        <td>${esc(r.activity)}</td>
+        <td style="text-align:center;font-weight:700;">${esc(r.code)}</td>
+      </tr>`).join('');
+    return `
+      <div class="day-block">
+        <div class="day-title-row"><span class="dname">${DAY_LABELS[k]}</span><span class="dtext">${d.date?fmtDate(d.date):'Date: —'}</span></div>
+        <table class="grid">
+          <tr><th style="width:26%">Lesson / subject</th><th>Learning / Activity &amp; Pupil Response</th><th class="col-code">Support code</th></tr>
+          ${rows}
+        </table>
+        <div class="comment-row"><label>Comment for parents</label><div class="static-val">${esc(d.comment)||'—'}</div></div>
+      </div>`;
+  }).join('');
+
+  const goalsRows = GOAL_DEFS.map((g,i)=>`
+    <tr>
+      <td class="goal-label">${g.title}<small>${g.sub}</small></td>
+      <td>${esc(data.goals[i].goalText)||'—'}</td>
+      <td>${esc(data.goals[i].successCriteria)||'—'}</td>
+    </tr>`).join('');
+
+  const evidenceRows = data.evidence.map(e=>`
+    <tr>
+      <td>${esc(e.date)}</td><td>${esc(e.goal)}</td><td>${esc(e.context)}</td><td>${esc(e.evidence)}</td><td>${esc(e.support)}</td>
+    </tr>`).join('');
+
+  const levelLabel = {emerging:'Emerging: with full adult support', developing:'Developing: with prompting', secure:'Secure: independently on more than one occasion'};
+  const summaryBlocks = GOAL_DEFS.map((g,i)=>{
+    const s = data.summary[i];
+    return `
+    <div class="summary-block">
+      <h4>${g.title}: ${g.sub}</h4>
+      <div class="summary-row"><label>Progress this week</label><div class="static-val">${esc(s.progress)||'—'}</div></div>
+      <div class="summary-row"><label>Current level</label><div class="static-val">${s.level?levelLabel[s.level]:'—'}</div></div>
+      <div class="summary-row"><label>Next steps</label><div class="static-val">${esc(s.nextSteps)||'—'}</div></div>
+    </div>`;
+  }).join('');
+
+  return `
+  <div class="sheet" id="pdfSheet">
+    <div class="sheet-header">
+      <h1>Shine</h1>
+      <div class="sub">DAILY FEEDBACK &amp; WEEKLY IEP GOAL PROGRESSION</div>
+    </div>
+    <div class="meta-grid">
+      <div class="meta-cell"><label>Pupil</label><div class="static-val static-title">${esc(data.pupil)||'—'}</div></div>
+      <div class="meta-cell"><label>Week beginning</label><div class="static-val">${data.weekBeginning?fmtDate(data.weekBeginning):'—'}</div></div>
+      <div class="meta-cell"><label>Class / year group</label><div class="static-val">${esc(data.classYear)||'—'}</div></div>
+      <div class="meta-cell"><label>LSA(s)</label><div class="static-val">${esc(data.lsaNames)||'—'}</div></div>
+    </div>
+    <div class="legend"><b>Engagement / Regulation &amp; Support —</b> A Settled and engaged &nbsp; B Required reminders or prompts &nbsp; C Required adult support to regulate &nbsp; N Not supported this lesson</div>
+    ${daysHtml}
+    <div class="section-title">IEP Goals</div>
+    <table class="grid goal-table">
+      <tr><th style="width:16%"></th><th>Goal as written in the IEP</th><th>Success criteria</th></tr>
+      ${goalsRows}
+    </table>
+    <div class="section-title">IEP Evidence Log</div>
+    <table class="grid">
+      <tr><th>Date</th><th>Goal</th><th>Lesson / context</th><th>Observed evidence</th><th>Level of support</th></tr>
+      ${evidenceRows}
+    </table>
+    <div class="section-title">End of Week Summary</div>
+    ${summaryBlocks}
+    <div class="section-title">Behaviour and Wellbeing: Weekly Summary</div>
+    <div class="summary-block">
+      <div class="summary-row"><label>Strengths &amp; successes</label><div class="static-val">${esc(data.behaviour.strengths)||'—'}</div></div>
+      <div class="summary-row"><label>Barriers observed</label><div class="static-val">${esc(data.behaviour.barriers)||'—'}</div></div>
+      <div class="summary-row"><label>Support / successful strategies used</label><div class="static-val">${esc(data.behaviour.support)||'—'}</div></div>
+    </div>
+  </div>`;
+}
+
+async function downloadFormPdf(data, filename){
+  const holder = document.createElement('div');
+  holder.style.position='fixed'; holder.style.left='-9999px'; holder.style.top='0';
+  holder.style.width='900px'; holder.style.background='#fff';
+  holder.innerHTML = renderStaticSheet(data);
+  document.body.appendChild(holder);
+  const opt = { margin:8, filename, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
+  await html2pdf().set(opt).from(holder).save();
+  document.body.removeChild(holder);
+}
+async function getFormPdfBlob(data){
+  const holder = document.createElement('div');
+  holder.style.position='fixed'; holder.style.left='-9999px'; holder.style.top='0';
+  holder.style.width='900px'; holder.style.background='#fff';
+  holder.innerHTML = renderStaticSheet(data);
+  document.body.appendChild(holder);
+  const opt = { margin:8, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
+  const blob = await html2pdf().set(opt).from(holder).outputPdf('blob');
+  document.body.removeChild(holder);
+  return blob;
+}
+async function downloadFolderZip(folder){
+  showToast('Preparing ZIP — this can take a moment…');
+  const zip = new JSZip();
+  for(const form of folder.forms){
+    const label = (form.weekBeginning ? form.weekBeginning : form.id);
+    const blob = await getFormPdfBlob(form.data);
+    zip.file(`${folder.studentName} - Week ${label}.pdf`, blob);
+  }
+  const content = await zip.generateAsync({type:'blob'});
+  const url = URL.createObjectURL(content);
+  const a = document.createElement('a');
+  a.href = url; a.download = `${folder.studentName} - all forms.zip`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('ZIP downloaded');
+}
+
+/* ---------------- populate inputs from data ---------------- */
+function populateSheetInputs(root, data){
+  root.querySelectorAll('[data-field]').forEach(el=>{
+    const path = el.getAttribute('data-field');
+    const val = getPath(data, path);
+    if(el.type==='radio'){
+      el.checked = (val===el.value);
+    } else {
+      el.value = val===undefined||val===null ? '' : val;
+    }
+  });
+}
+
+/* ================= RENDER FUNCTIONS ================= */
+function render(){
+  const app = document.getElementById('app');
+  let html = '';
+  switch(STATE.screen){
+    case 'loading': html = renderLoading(); break;
+    case 'login': html = renderLogin(); break;
+    case 'dashboard': html = renderShellWith(renderDashboard()); break;
+    case 'folder': html = renderShellWith(renderFolder()); break;
+    case 'form': html = renderFormScreen(); break;
+    case 'admin': html = renderShellWith(renderAdmin(), true); break;
+    case 'parentGate': html = renderParentGate(); break;
+    case 'parentView': html = renderParentView(); break;
+    default: html = renderLoading();
+  }
+  app.innerHTML = html + (STATE.toast ? `<div class="toast">${esc(STATE.toast)}</div>` : '') + renderModal();
+  afterRender();
+}
+
+function renderLoading(){
+  return `<div class="center-page"><div style="color:#fff;font-family:'Fraunces',serif;font-size:20px;">Loading Shine…</div></div>`;
+}
+
+function renderLogin(){
+  return `
+  <div class="center-page">
+    <div class="auth-card">
+      <div class="auth-brand">
+        <div class="brand">Shine<span>.</span></div>
+        <div class="subtitle">Daily Feedback Form</div>
+      </div>
+      ${STATE._loginError ? `<div class="err-msg">${esc(STATE._loginError)}</div>` : ''}
+      <form id="loginForm">
+        <div class="field"><label>Username</label><input id="loginUser" autocomplete="username" placeholder="e.g. LSA01" required></div>
+        <div class="field"><label>Password</label><input id="loginPass" type="password" autocomplete="current-password" required></div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center;" type="submit">Log in</button>
+      </form>
+      <div class="hint">LSA accounts are issued by your Innovation / SEN team. Contact them if you don't have your credentials.</div>
+    </div>
+  </div>`;
+}
+
+function renderShellWith(inner, isAdmin){
+  return `
+  <div class="topbar">
+    <div class="brand-wrap">
+      <div class="brand">Shine<span>.</span></div>
+      <div class="subtitle">Daily Feedback Form</div>
+    </div>
+    <div class="topbar-right">
+      <span class="who">${isAdmin?'Signed in as <b>Administrator</b>':'Signed in as <b>'+esc(STATE.session.name)+'</b>'}</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Log out</button>
+    </div>
+  </div>
+  <div class="page">${inner}</div>`;
+}
+
+function renderDashboard(){
+  const folders = STATE.userData.folders;
+  return `
+  <div class="section-head">
+    <h2>Your students</h2>
+    <button class="btn btn-primary" onclick="openNewFolderModal()">+ New student folder</button>
+  </div>
+  ${folders.length===0 ? `
+    <div class="empty-state">
+      <div class="big">No student folders yet</div>
+      <div>Create a folder for each pupil, then add their daily feedback forms inside it.</div>
+      <div style="margin-top:16px;"><button class="btn btn-navy" onclick="openNewFolderModal()">+ New student folder</button></div>
+    </div>` : `
+    <div class="folder-grid">
+      ${folders.map(f=>`
+        <div class="folder-card">
+          <div class="folder-icon">&#128193;</div>
+          <div class="folder-name" onclick="openFolder('${f.id}')">${esc(f.studentName)}</div>
+          <div class="folder-meta">${f.forms.length} form${f.forms.length===1?'':'s'}</div>
+          <div class="folder-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openFolder('${f.id}')">Open</button>
+            <button class="btn btn-ghost btn-icon" title="Rename" onclick="openRenameFolderModal('${f.id}')">&#9998;</button>
+            <button class="btn btn-danger btn-icon" title="Delete" onclick="openDeleteFolderModal('${f.id}')">&#128465;</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `}`;
+}
+
+function openFolder(id){ STATE.currentFolderId=id; STATE.screen='folder'; render(); }
+
+function renderFolder(){
+  const folder = currentFolder();
+  if(!folder){ STATE.screen='dashboard'; return renderDashboard(); }
+  const forms = folder.forms.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  return `
+  <div class="breadcrumb"><button onclick="STATE.screen='dashboard';render();">&larr; All students</button></div>
+  <div class="section-head">
+    <h2>${esc(folder.studentName)}</h2>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${forms.length? `<button class="btn btn-ghost" onclick="downloadFolderZip(currentFolder())">Download all (ZIP)</button>`:''}
+      <button class="btn btn-primary" onclick="createForm('${folder.id}')">+ New form</button>
+    </div>
+  </div>
+  ${forms.length===0 ? `
+    <div class="empty-state">
+      <div class="big">No forms yet for ${esc(folder.studentName)}</div>
+      <div>Create the first daily feedback form for this pupil.</div>
+      <div style="margin-top:16px;"><button class="btn btn-navy" onclick="createForm('${folder.id}')">+ New form</button></div>
+    </div>` : `
+    <div class="form-list">
+      ${forms.map(f=>`
+        <div class="form-row">
+          <div class="form-row-main" onclick="openForm('${folder.id}','${f.id}')">
+            <div class="form-row-title">Week beginning: ${f.weekBeginning?fmtDate(f.weekBeginning):'(not set)'}</div>
+            <div class="form-row-sub">Created ${new Date(f.createdAt).toLocaleDateString('en-GB')} ${f.viewLink?'· <span class=\"badge\">Parent link active</span>':''}</div>
+          </div>
+          <div class="form-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openForm('${folder.id}','${f.id}')">Open</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadFormPdf(currentFolder().forms.find(x=>x.id==='${f.id}').data,'${esc(folder.studentName)} - Week ${f.weekBeginning||f.id}.pdf')">Download PDF</button>
+            <button class="btn btn-ghost btn-sm" onclick="generateOrShowLink('${folder.id}','${f.id}')">Parent link</button>
+            <select class="small-select" onchange="if(this.value){moveForm('${folder.id}','${f.id}',this.value); this.value='';}">
+              <option value="">Move to…</option>
+              ${STATE.userData.folders.filter(x=>x.id!==folder.id).map(x=>`<option value="${x.id}">${esc(x.studentName)}</option>`).join('')}
+            </select>
+            <button class="btn btn-danger btn-icon" title="Delete" onclick="openDeleteFormModal('${folder.id}','${f.id}')">&#128465;</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `}`;
+}
+
+function openForm(folderId, formId){ STATE.currentFolderId=folderId; STATE.currentFormId=formId; STATE.screen='form'; render(); }
+
+function renderFormScreen(){
+  const folder = currentFolder(); const form = currentForm();
+  if(!folder||!form){ STATE.screen='dashboard'; render(); return ''; }
+  const data = form.data;
+  const rowsHtml = (k)=> data.days[k].rows.map((r,i)=>`
+    <tr>
+      <td><input data-field="days.${k}.rows.${i}.lesson"></td>
+      <td><input data-field="days.${k}.rows.${i}.activity"></td>
+      <td class="col-code">
+        <select data-field="days.${k}.rows.${i}.code">
+          <option value=""></option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="N">N</option>
+        </select>
+      </td>
+    </tr>`).join('');
+  const daysHtml = DAY_KEYS.map(k=>`
+    <div class="day-block">
+      <div class="day-title-row">
+        <span class="dname">${DAY_LABELS[k]}</span>
+        <span><input type="date" data-field="days.${k}.date"></span>
+      </div>
+      <table class="grid">
+        <tr><th style="width:26%">Lesson / subject</th><th>Learning / Activity &amp; Pupil Response</th><th class="col-code">Support code</th></tr>
+        ${rowsHtml(k)}
+      </table>
+      <div class="comment-row"><label>Comment for parents</label><textarea rows="2" data-field="days.${k}.comment"></textarea></div>
+    </div>
+  `).join('');
+
+  const goalRows = GOAL_DEFS.map((g,i)=>`
+    <tr>
+      <td class="goal-label">${g.title}<small>${g.sub}</small></td>
+      <td><textarea rows="2" data-field="goals.${i}.goalText"></textarea></td>
+      <td><textarea rows="2" data-field="goals.${i}.successCriteria"></textarea></td>
+    </tr>`).join('');
+
+  const evidenceRows = data.evidence.map((e,i)=>`
+    <tr>
+      <td><input type="date" data-field="evidence.${i}.date"></td>
+      <td><input data-field="evidence.${i}.goal" placeholder="Goal 1/2/3"></td>
+      <td><input data-field="evidence.${i}.context"></td>
+      <td><input data-field="evidence.${i}.evidence"></td>
+      <td><input data-field="evidence.${i}.support"></td>
+    </tr>`).join('');
+
+  const summaryBlocks = GOAL_DEFS.map((g,i)=>`
+    <div class="summary-block">
+      <h4>${g.title}: ${g.sub}</h4>
+      <div class="summary-row"><label>Progress this week</label><textarea rows="2" data-field="summary.${i}.progress" placeholder="Summarise progress against this goal, referring to entries in the evidence log."></textarea></div>
+      <div class="summary-row"><label>Current level</label>
+        <div class="level-options">
+          <label><input type="radio" name="summary${i}level" data-field="summary.${i}.level" value="emerging"> Emerging: with full adult support</label>
+          <label><input type="radio" name="summary${i}level" data-field="summary.${i}.level" value="developing"> Developing: with prompting</label>
+          <label><input type="radio" name="summary${i}level" data-field="summary.${i}.level" value="secure"> Secure: independently on more than one occasion</label>
+        </div>
+      </div>
+      <div class="summary-row"><label>Next steps</label><textarea rows="2" data-field="summary.${i}.nextSteps"></textarea></div>
+    </div>`).join('');
+
+  return `
+  <div class="doc-toolbar">
+    <div class="left">
+      <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.4);" onclick="backToFolderFromForm()">&larr; Back</button>
+      <span style="font-weight:700;">${esc(folder.studentName)}</span>
+    </div>
+    <div class="actions">
+      <button class="btn btn-navy" onclick="harvestAndSaveForm()">Save</button>
+      <button class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4);" onclick="harvestAndSaveThenPdf()">Download PDF</button>
+      <button class="btn btn-primary" onclick="generateOrShowLink('${folder.id}','${form.id}')">Parent link</button>
+    </div>
+  </div>
+  <div class="sheet-wrap">
+    <div class="sheet" id="sheetForm">
+      <div class="sheet-header">
+        <h1>Shine</h1>
+        <div class="sub">DAILY FEEDBACK &amp; WEEKLY IEP GOAL PROGRESSION</div>
+      </div>
+      <div class="meta-grid">
+        <div class="meta-cell"><label>Pupil</label><input data-field="pupil"></div>
+        <div class="meta-cell"><label>Week beginning</label><input type="date" data-field="weekBeginning"></div>
+        <div class="meta-cell"><label>Class / year group</label><input data-field="classYear"></div>
+        <div class="meta-cell"><label>LSA(s)</label><input data-field="lsaNames"></div>
+      </div>
+      <div class="legend"><b>Engagement / Regulation &amp; Support —</b> A Settled and engaged &nbsp; B Required reminders or prompts &nbsp; C Required adult support to regulate &nbsp; N Not supported this lesson</div>
+      ${daysHtml}
+      <div class="section-title">IEP Goals</div>
+      <table class="grid goal-table">
+        <tr><th style="width:16%"></th><th>Goal as written in the IEP</th><th>Success criteria</th></tr>
+        ${goalRows}
+      </table>
+      <div class="section-title">IEP Evidence Log</div>
+      <table class="grid">
+        <tr><th>Date</th><th>Goal</th><th>Lesson / context</th><th>Observed evidence</th><th>Level of support</th></tr>
+        ${evidenceRows}
+      </table>
+      <div class="section-title">End of Week Summary</div>
+      ${summaryBlocks}
+      <div class="section-title">Behaviour and Wellbeing: Weekly Summary</div>
+      <div class="summary-block">
+        <div class="summary-row"><label>Strengths &amp; successes</label><textarea rows="2" data-field="behaviour.strengths"></textarea></div>
+        <div class="summary-row"><label>Barriers observed</label><textarea rows="2" data-field="behaviour.barriers"></textarea></div>
+        <div class="summary-row"><label>Support / successful strategies used</label><textarea rows="2" data-field="behaviour.support" placeholder="Include any strategies that could be used at home."></textarea></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function backToFolderFromForm(){
+  harvestAndSaveForm().then(()=>{ STATE.screen='folder'; render(); });
+}
+async function harvestAndSaveThenPdf(){
+  await harvestAndSaveForm();
+  const form = currentForm(); const folder = currentFolder();
+  await downloadFormPdf(form.data, `${folder.studentName} - Week ${form.weekBeginning||form.id}.pdf`);
+}
+
+function renderAdmin(){
+  const acc = STATE.accounts;
+  return `
+  <div class="section-head"><h2>Administrator</h2></div>
+  <p style="color:var(--ink-soft);font-size:14px;">Distribute one set of credentials to each Learning Support Assistant. Anyone signing in with these can create student folders, forms and parent links.</p>
+  <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
+    <button class="btn btn-navy" onclick="exportAccountsCsv()">Export credentials (CSV)</button>
+  </div>
+  <div style="overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:10px;">
+    <table class="grid" style="min-width:520px;">
+      <tr><th>Username</th><th>Password</th><th>Display name</th><th></th></tr>
+      ${acc.lsas.map((l,i)=>`
+        <tr>
+          <td>${esc(l.username)}</td>
+          <td>${esc(l.password)}</td>
+          <td><input value="${esc(l.name||'')}" onchange="renameLsa(${i}, this.value)" style="border:1px solid var(--line);border-radius:6px;padding:4px 6px;width:100%;"></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="resetLsaPassword(${i})">Reset password</button></td>
+        </tr>`).join('')}
+    </table>
+  </div>`;
+}
+async function renameLsa(i, name){
+  const res = await apiAdminUpdate('rename', i, name);
+  if(res.ok){ STATE.accounts.lsas = res.lsas; showToast('Name updated'); }
+}
+async function resetLsaPassword(i){
+  const res = await apiAdminUpdate('reset', i, null);
+  if(res.ok){
+    STATE.accounts.lsas = res.lsas;
+    render();
+    showToast('Password reset for '+STATE.accounts.lsas[i].username);
+  }
+}
+function exportAccountsCsv(){
+  const rows = [['Username','Password','Display name'], ...STATE.accounts.lsas.map(l=>[l.username,l.password,l.name||''])];
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\\n');
+  const blob = new Blob([csv],{type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='shine-lsa-credentials.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function renderParentGate(){
+  return `<div class="center-page"><div class="auth-card gate-box">
+    <div class="auth-brand">
+      <div class="brand" style="color:var(--navy-900);">Shine<span style="color:var(--gold-dark);">.</span></div>
+      <div class="subtitle" style="color:var(--ink-soft);">Daily Feedback Form — Parent View</div>
+    </div>
+    ${STATE._gateError?`<div class="err-msg">${esc(STATE._gateError)}</div>`:''}
+    <form id="gateForm">
+      <div class="field"><label>Enter the password provided by the LSA</label><input id="gatePass" type="password" required autofocus></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;" type="submit">View feedback</button>
+    </form>
+  </div></div>`;
+}
+
+function renderParentView(){
+  const {folder, form} = STATE.parentFormRef;
+  return `
+  <div class="topbar">
+    <div class="brand-wrap"><div class="brand">Shine<span>.</span></div><div class="subtitle">Daily Feedback Form — Parent View</div></div>
+    <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="downloadFormPdf(STATE.parentFormRef.form.data, '${esc(folder.studentName)} - Week ${form.weekBeginning||form.id}.pdf')">Download PDF</button></div>
+  </div>
+  <div class="sheet-wrap">${renderStaticSheet(form.data)}</div>`;
+}
+
+/* ---------------- modals ---------------- */
+function openNewFolderModal(){ STATE._modal = {type:'newFolder', value:''}; render(); }
+function openRenameFolderModal(id){ const f = STATE.userData.folders.find(x=>x.id===id); STATE._modal = {type:'renameFolder', id, value:f.studentName}; render(); }
+function openDeleteFolderModal(id){ const f = STATE.userData.folders.find(x=>x.id===id); STATE._modal = {type:'deleteFolder', id, name:f.studentName}; render(); }
+function openDeleteFormModal(folderId, formId){ STATE._modal = {type:'deleteForm', folderId, formId}; render(); }
+function closeModal(){ STATE._modal = null; render(); }
+
+function renderModal(){
+  const m = STATE._modal;
+  if(!m) return '';
+  if(m.type==='newFolder'){
+    return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
+      <h3>New student folder</h3>
+      <div class="field"><label>Student name</label><input id="modalInput" value="" placeholder="e.g. Amina Khalid" autofocus></div>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="submitNewFolder()">Create</button></div>
+    </div></div>`;
+  }
+  if(m.type==='renameFolder'){
+    return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
+      <h3>Rename folder</h3>
+      <div class="field"><label>Student name</label><input id="modalInput" value="${esc(m.value)}" autofocus></div>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-primary" onclick="submitRenameFolder('${m.id}')">Save</button></div>
+    </div></div>`;
+  }
+  if(m.type==='deleteFolder'){
+    return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
+      <h3>Delete folder?</h3>
+      <p style="color:var(--ink-soft);font-size:14px;">This will permanently delete <b>${esc(m.name)}</b> and every form inside it. This cannot be undone.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" style="background:var(--danger);color:#fff;border:none;" onclick="confirmDeleteFolder('${m.id}')">Delete</button></div>
+    </div></div>`;
+  }
+  if(m.type==='deleteForm'){
+    return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
+      <h3>Delete this form?</h3>
+      <p style="color:var(--ink-soft);font-size:14px;">This cannot be undone.</p>
+      <div class="modal-actions"><button class="btn btn-ghost" onclick="closeModal()">Cancel</button><button class="btn btn-danger" style="background:var(--danger);color:#fff;border:none;" onclick="confirmDeleteForm('${m.folderId}','${m.formId}')">Delete</button></div>
+    </div></div>`;
+  }
+  if(m.type==='link'){
+    const url = buildLinkUrl(m.link.token);
+    return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
+      <h3>Parent view link</h3>
+      <p style="color:var(--ink-soft);font-size:13.5px;">Share this link and password with the parent. They will be able to view (and download) the form, but not edit it.</p>
+      <div class="copy-box"><span class="val" style="word-break:break-all;">${esc(url)}</span><button class="btn btn-ghost btn-sm" onclick="copyText('${url}')">Copy</button></div>
+      <div class="pw-display">${esc(m.link.password)}</div>
+      <div style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="copyText('${m.link.password}')">Copy password</button></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" onclick="regenerateLink('${m.folderId}','${m.formId}')">Generate new link</button>
+        <button class="btn btn-primary" onclick="closeModal()">Done</button>
+      </div>
+    </div></div>`;
+  }
+  return '';
+}
+async function submitNewFolder(){
+  const v = document.getElementById('modalInput').value;
+  await createFolder(v);
+  closeModal();
+}
+async function submitRenameFolder(id){
+  const v = document.getElementById('modalInput').value;
+  await renameFolder(id, v);
+  closeModal();
+}
+async function confirmDeleteFolder(id){ await deleteFolder(id); closeModal(); }
+async function confirmDeleteForm(folderId, formId){ await deleteForm(folderId, formId); closeModal(); }
+
+/* ---------------- post-render wiring ---------------- */
+function afterRender(){
+  const loginForm = document.getElementById('loginForm');
+  if(loginForm){
+    loginForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      doLogin(document.getElementById('loginUser').value, document.getElementById('loginPass').value);
+    });
+  }
+  const gateForm = document.getElementById('gateForm');
+  if(gateForm){
+    gateForm.addEventListener('submit', e=>{
+      e.preventDefault();
+      tryParentPassword(document.getElementById('gatePass').value);
+    });
+  }
+  if(STATE.screen==='form'){
+    const container = document.getElementById('sheetForm');
+    const form = currentForm();
+    if(container && form) populateSheetInputs(container, form.data);
+    // auto-fill weekday dates from week beginning (Monday)
+    const wb = container.querySelector('[data-field="weekBeginning"]');
+    if(wb){
+      wb.addEventListener('change', ()=>{
+        if(!wb.value) return;
+        const start = new Date(wb.value+'T00:00:00');
+        DAY_KEYS.forEach((k,i)=>{
+          const el = container.querySelector(`[data-field="days.${k}.date"]`);
+          if(el && !el.value){
+            const dt = new Date(start); dt.setDate(dt.getDate()+i);
+            el.value = dt.toISOString().slice(0,10);
+          }
+        });
+      });
+    }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

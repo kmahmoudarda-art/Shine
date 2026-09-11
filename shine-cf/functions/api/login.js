@@ -1,0 +1,37 @@
+import { signToken } from '../_lib/auth.js';
+
+const SEED_LSAS = [["LSA01","XDA2JH"],["LSA02","HE2DY2"],["LSA03","7UCVQB"],["LSA04","ACGHTW"],["LSA05","AUGZXZ"],["LSA06","UQHRVJ"],["LSA07","46A34F"],["LSA08","ZQMJEG"],["LSA09","93MDCP"],["LSA10","DN6NWJ"],["LSA11","4B2RUD"],["LSA12","8PCUK5"],["LSA13","XW76NV"],["LSA14","GZCBYH"],["LSA15","3KC6H6"],["LSA16","DPJRX5"],["LSA17","NFNNGY"],["LSA18","JZ8YXC"],["LSA19","WXFU2H"],["LSA20","FRPJ8X"],["LSA21","ZUHYM5"],["LSA22","33BH5B"],["LSA23","4MPJCG"],["LSA24","89V7ZM"],["LSA25","GXSP78"],["LSA26","XREJEH"],["LSA27","2UUJ2V"],["LSA28","Q7VPNH"],["LSA29","ETSC3B"],["LSA30","6DEXF4"],["LSA31","YQWCPP"],["LSA32","WRTJU6"],["LSA33","9AY2DY"],["LSA34","7U3J3X"],["LSA35","MDKQFR"],["LSA36","A9272J"],["LSA37","T3FT8D"],["LSA38","6XK5XT"],["LSA39","WGEN3F"],["LSA40","U938T8"],["LSA41","AWMSAD"],["LSA42","8N754K"],["LSA43","HBH7V9"],["LSA44","CC2S5C"],["LSA45","3U3EEY"],["LSA46","S9UFJT"],["LSA47","6WQ9G8"],["LSA48","U32ZGZ"],["LSA49","KPYXNR"],["LSA50","7TRDHH"],["LSA51","CMAVUH"],["LSA52","VHACZX"],["LSA53","BHC7B6"],["LSA54","MCTHJY"],["LSA55","SGUE28"],["LSA56","7VVSH4"],["LSA57","S4QGDD"],["LSA58","YQNQQR"],["LSA59","62BYXX"],["LSA60","DBP2M4"],["LSA61","6DHGGU"],["LSA62","REQFJR"],["LSA63","H68CR4"],["LSA64","66UDBX"],["LSA65","U5AC83"],["LSA66","6HFQSS"],["LSA67","G6P7BF"],["LSA68","PAPJ84"],["LSA69","4RKQZ9"],["LSA70","24UYZS"],["LSA71","EGKG9B"],["LSA72","V2UB2M"],["LSA73","BBVST8"],["LSA74","6TFB9T"],["LSA75","C6FCWC"],["LSA76","Y6HPD9"],["LSA77","7VHVWB"],["LSA78","WCQYVV"],["LSA79","TM8JGY"],["LSA80","ZMHJPE"],["LSA81","YXKRM8"],["LSA82","38CARW"],["LSA83","VDCUGT"],["LSA84","JE8N7C"],["LSA85","7HNKFR"],["LSA86","5UZKW4"],["LSA87","XTAY5U"],["LSA88","K8YD97"],["LSA89","EJD7D2"],["LSA90","UEJKWG"]];
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'Shine#Admin2026';
+
+async function loadAccounts(env) {
+  const raw = await env.SHINE_KV.get('accounts');
+  if (raw) return JSON.parse(raw);
+  const seeded = {
+    admin: { username: ADMIN_USERNAME, password: ADMIN_PASSWORD },
+    lsas: SEED_LSAS.map(([u, p]) => ({ username: u, password: p, name: u })),
+  };
+  await env.SHINE_KV.put('accounts', JSON.stringify(seeded));
+  return seeded;
+}
+
+export async function onRequestPost({ request, env }) {
+  let body;
+  try { body = await request.json(); } catch (e) { return Response.json({ ok: false, error: 'Bad request' }, { status: 400 }); }
+  const uname = (body.username || '').trim();
+  const password = body.password || '';
+  const accounts = await loadAccounts(env);
+
+  if (uname.toLowerCase() === ADMIN_USERNAME && password === accounts.admin.password) {
+    const token = await signToken({ u: ADMIN_USERNAME, a: true, iat: Date.now() }, env.SHINE_SECRET);
+    return Response.json({ ok: true, token, username: ADMIN_USERNAME, name: 'Administrator', isAdmin: true });
+  }
+
+  const found = accounts.lsas.find(l => l.username.toLowerCase() === uname.toLowerCase() && l.password === password);
+  if (found) {
+    const token = await signToken({ u: found.username, a: false, iat: Date.now() }, env.SHINE_SECRET);
+    return Response.json({ ok: true, token, username: found.username, name: found.name || found.username, isAdmin: false });
+  }
+
+  return Response.json({ ok: false, error: 'Incorrect username or password.' }, { status: 401 });
+}
