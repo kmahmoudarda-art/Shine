@@ -75,6 +75,8 @@ export async function checkRateLimit(env, key, minIntervalSeconds) {
   if (last && (now - parseInt(last, 10)) < minIntervalSeconds * 1000) {
     return false;
   }
-  await env.SHINE_KV.put(kvKey, String(now), { expirationTtl: minIntervalSeconds * 2 });
+  // KV enforces a minimum expirationTtl of 60 seconds, regardless of how
+  // short the actual cooldown window is.
+  await env.SHINE_KV.put(kvKey, String(now), { expirationTtl: Math.max(60, minIntervalSeconds * 2) });
   return true;
 }
