@@ -1,4 +1,9 @@
+import { checkRateLimit, clientIp } from '../../_lib/auth.js';
+
 export async function onRequestPost({ request, env }) {
+  const allowed = await checkRateLimit(env, 'parent:' + clientIp(request), 2);
+  if (!allowed) return Response.json({ ok: false, error: 'Too many attempts. Please wait a moment and try again.' }, { status: 429 });
+
   let body;
   try { body = await request.json(); } catch (e) { return Response.json({ ok: false, error: 'Bad request' }, { status: 400 }); }
   const { token, password } = body;

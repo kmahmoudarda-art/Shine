@@ -522,6 +522,8 @@ async function tryParentPassword(pw){
   if(!res.ok){
     STATE._gateError = res.error === 'Link not found'
       ? 'This link is invalid or has been replaced with a newer one. Please ask the LSA to resend the current link.'
+      : res.error === 'Too many attempts. Please wait a moment and try again.'
+      ? res.error
       : 'Incorrect password. Please check with the LSA who sent you this link.';
     render();
     return;
