@@ -618,7 +618,7 @@ async function downloadFormPdf(data, filename){
   holder.style.width='900px'; holder.style.background='#fff';
   holder.innerHTML = renderStaticSheet(data);
   document.body.appendChild(holder);
-  const opt = { margin:8, filename, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
+  const opt = { margin:8, filename, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true, scrollX:0, scrollY:-window.scrollY, windowWidth:document.documentElement.offsetWidth, windowHeight:document.documentElement.offsetHeight}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
   await html2pdf().set(opt).from(holder).save();
   document.body.removeChild(holder);
 }
@@ -628,7 +628,7 @@ async function getFormPdfBlob(data){
   holder.style.width='900px'; holder.style.background='#fff';
   holder.innerHTML = renderStaticSheet(data);
   document.body.appendChild(holder);
-  const opt = { margin:8, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
+  const opt = { margin:8, image:{type:'jpeg',quality:0.95}, html2canvas:{scale:2, useCORS:true, scrollX:0, scrollY:-window.scrollY, windowWidth:document.documentElement.offsetWidth, windowHeight:document.documentElement.offsetHeight}, jsPDF:{unit:'pt',format:'a4',orientation:'portrait'}, pagebreak:{mode:['css','avoid-all']} };
   const blob = await html2pdf().set(opt).from(holder).outputPdf('blob');
   document.body.removeChild(holder);
   return blob;
