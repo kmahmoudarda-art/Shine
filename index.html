@@ -708,7 +708,7 @@ function renderShellWith(inner, isAdmin){
     </div>
     <div class="topbar-right">
       <span class="who">${isAdmin?'Signed in as <b>Administrator</b>':'Signed in as <b>'+esc(STATE.session.name)+'</b>'}</span>
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Log out</button>
+      <button class="btn btn-ghost btn-sm" style="color:#fff;border-color:rgba(255,255,255,.4);" onclick="doLogout()">Log out</button>
     </div>
   </div>
   <div class="page">${inner}</div>`;
