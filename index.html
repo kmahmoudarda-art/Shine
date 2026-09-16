@@ -260,6 +260,9 @@ let STATE = {
   adminData: null,        // that LSA's {folders:[...]}
   adminFolderId: null,
   adminFormId: null,
+  adminAllFolders: null,  // flat list of every folder across every LSA, tagged with owner info
+  adminAllFilter: '',
+  adminBrowseSource: null, // 'lsa' | 'all' — where adminFormList/adminFormView should navigate back to
   parentToken: null,
   parentFolderRef: null,  // {studentName, forms:[...]}
   parentCurrentFormId: null,
@@ -365,6 +368,10 @@ async function apiAdminUpdate(action, index, name){
 }
 async function apiAdminGetLsaData(username){
   const res = await fetch(API_BASE+'/admin/userdata?username='+encodeURIComponent(username), {headers:authHeaders()});
+  return res.json();
+}
+async function apiAdminGetAllFolders(){
+  const res = await fetch(API_BASE+'/admin/all-folders', {headers:authHeaders()});
   return res.json();
 }
 
@@ -954,9 +961,13 @@ function renderAdminAccountsTab(){
   </div>`;
 }
 function renderAdminBrowseTab(){
+  if(STATE.adminAllFolders) return renderAdminAllFoldersView();
   const acc = STATE.accounts;
   return `
   <p style="color:var(--ink-soft);font-size:14px;">View any LSA's student folders and forms directly — no parent link or password needed.</p>
+  <div style="margin-bottom:18px;">
+    <button class="btn btn-navy" onclick="loadAllAdminFolders()">See every folder, all LSAs</button>
+  </div>
   <div class="folder-grid">
     ${acc.lsas.map(l=>`
       <div class="folder-card">
@@ -977,7 +988,53 @@ async function openAdminLsa(username){
   STATE.adminData = res.data;
   STATE.adminFolderId = null;
   STATE.adminFormId = null;
+  STATE.adminBrowseSource = 'lsa';
   STATE.screen = 'adminFolders';
+  render();
+}
+async function loadAllAdminFolders(){
+  const res = await apiAdminGetAllFolders();
+  if(!res.ok){ showToast(res.error||'Could not load folders'); return; }
+  STATE.adminAllFolders = res.folders;
+  STATE.adminAllFilter = '';
+  render();
+}
+function renderAdminAllFoldersView(){
+  const q = (STATE.adminAllFilter||'').trim().toLowerCase();
+  const folders = STATE.adminAllFolders.filter(f=>{
+    if(!q) return true;
+    return f.studentName.toLowerCase().includes(q) || f.ownerName.toLowerCase().includes(q) || f.ownerUsername.toLowerCase().includes(q);
+  });
+  return `
+  <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:14px;">
+    <p style="color:var(--ink-soft);font-size:14px;margin:0;">${STATE.adminAllFolders.length} folder${STATE.adminAllFolders.length===1?'':'s'} across every LSA.</p>
+    <button class="btn btn-ghost btn-sm" onclick="STATE.adminAllFolders=null;render();">&larr; Back to LSA list</button>
+  </div>
+  <div class="field" style="max-width:340px;"><input placeholder="Filter by student or LSA…" value="${esc(STATE.adminAllFilter)}" oninput="STATE.adminAllFilter=this.value;render();"></div>
+  ${folders.length===0 ? `
+    <div class="empty-state"><div class="big">No folders found</div></div>` : `
+    <div class="folder-grid">
+      ${folders.map(f=>`
+        <div class="folder-card">
+          <div class="folder-icon">&#128193;</div>
+          <div class="folder-name" onclick='openAdminFolderFromAll(${JSON.stringify(f.id)})'>${esc(f.studentName)}</div>
+          <div class="folder-meta">${f.forms.length} form${f.forms.length===1?'':'s'} ${f.viewLink?'· <span class="badge">Parent link active</span>':''}</div>
+          <div class="folder-meta">LSA: ${esc(f.ownerName)} (${esc(f.ownerUsername)})</div>
+          <div class="folder-actions"><button class="btn btn-ghost btn-sm" onclick='openAdminFolderFromAll(${JSON.stringify(f.id)})'>Open</button></div>
+        </div>
+      `).join('')}
+    </div>
+  `}`;
+}
+function openAdminFolderFromAll(folderId){
+  const folder = STATE.adminAllFolders.find(f=>f.id===folderId);
+  if(!folder) return;
+  STATE.adminUsername = folder.ownerUsername;
+  STATE.adminData = { folders: [folder] };
+  STATE.adminFolderId = folder.id;
+  STATE.adminFormId = null;
+  STATE.adminBrowseSource = 'all';
+  STATE.screen = 'adminFormList';
   render();
 }
 function renderAdminFolders(){
@@ -1005,9 +1062,10 @@ function renderAdminFormList(){
   const folder = adminCurrentFolder();
   if(!folder){ STATE.screen='adminFolders'; render(); return ''; }
   const forms = folder.forms.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  const backLabel = STATE.adminBrowseSource==='all' ? 'All folders' : `${esc(STATE.adminUsername)}'s students`;
   return `
-  <div class="breadcrumb"><button onclick="STATE.screen='adminFolders';render();">&larr; ${esc(STATE.adminUsername)}'s students</button></div>
-  <div class="section-head"><h2>${esc(folder.studentName)}</h2></div>
+  <div class="breadcrumb"><button onclick="adminBackFromFormList()">&larr; ${backLabel}</button></div>
+  <div class="section-head"><h2>${esc(folder.studentName)} <span class="tag-mini">(${esc(STATE.adminUsername)})</span></h2></div>
   ${forms.length===0 ? `
     <div class="empty-state"><div class="big">No forms yet</div></div>` : `
     <div class="form-list">
@@ -1027,6 +1085,11 @@ function renderAdminFormList(){
   `}`;
 }
 function openAdminForm(formId){ STATE.adminFormId = formId; STATE.screen = 'adminFormView'; render(); }
+function adminBackFromFormList(){
+  if(STATE.adminBrowseSource==='all'){ STATE.screen='admin'; STATE.adminTab='browse'; }
+  else { STATE.screen='adminFolders'; }
+  render();
+}
 function renderAdminFormView(){
   const folder = adminCurrentFolder();
   const form = folder ? folder.forms.find(f=>f.id===STATE.adminFormId) : null;
