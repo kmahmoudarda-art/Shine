@@ -1112,7 +1112,7 @@ async function resetLsaPassword(i){
 }
 function exportAccountsCsv(){
   const rows = [['Username','Password','Display name'], ...STATE.accounts.lsas.map(l=>[l.username,l.password,l.name||''])];
-  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\\n');
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
   const blob = new Blob([csv],{type:'text/csv'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='shine-lsa-credentials.csv';
