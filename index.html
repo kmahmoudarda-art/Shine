@@ -1112,8 +1112,10 @@ async function resetLsaPassword(i){
 }
 function exportAccountsCsv(){
   const rows = [['Username','Password','Display name'], ...STATE.accounts.lsas.map(l=>[l.username,l.password,l.name||''])];
-  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
-  const blob = new Blob([csv],{type:'text/csv'});
+  // "sep=," forces Excel to split into columns on comma even when the OS
+  // regional settings default to a different list separator (e.g. ";").
+  const csv = 'sep=,\r\n' + rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const blob = new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8;'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a'); a.href=url; a.download='shine-lsa-credentials.csv';
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
