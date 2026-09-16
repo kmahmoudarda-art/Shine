@@ -17,11 +17,15 @@ export async function onRequestPost({ request, env }) {
   const raw = await env.SHINE_KV.get('userdata:' + entry.username);
   const data = raw ? JSON.parse(raw) : { folders: [] };
   const folder = data.folders.find(f => f.id === entry.folderId);
-  const form = folder ? folder.forms.find(f => f.id === entry.formId) : null;
 
-  if (!form || !form.viewLink || form.viewLink.token !== token || form.viewLink.password !== password) {
+  if (!folder || !folder.viewLink || folder.viewLink.token !== token || folder.viewLink.password !== password) {
     return Response.json({ ok: false, error: 'Incorrect password' }, { status: 401 });
   }
 
-  return Response.json({ ok: true, studentName: folder.studentName, weekBeginning: form.weekBeginning, data: form.data });
+  const forms = folder.forms
+    .slice()
+    .sort((a, b) => b.createdAt - a.createdAt)
+    .map(f => ({ id: f.id, weekBeginning: f.weekBeginning, createdAt: f.createdAt, data: f.data }));
+
+  return Response.json({ ok: true, studentName: folder.studentName, forms });
 }

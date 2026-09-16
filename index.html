@@ -237,23 +237,32 @@ table.grid td input:focus, table.grid td select:focus, table.grid td textarea:fo
    SHINE — Daily Feedback Form
    Storage model (all shared=true so every LSA / parent shares one dataset):
      shine:accounts        -> {admin:{username,password}, lsas:[{username,password,name}]}
-     shine:userdata:<user> -> {folders:[{id, studentName, forms:[{id, weekBeginning, createdAt, data, viewLink}]}]}
-     shine:linkindex       -> {<token>: {username, folderId, formId}}
+     shine:userdata:<user> -> {folders:[{id, studentName, forms:[{id, weekBeginning, createdAt, data}], viewLink}]}
+     shine:linkindex       -> {<token>: {username, folderId}}
+   Each STUDENT FOLDER has one static parent link + static password. Once a
+   parent opens it, they can see every form inside that folder — the link
+   never changes unless an LSA explicitly regenerates it.
    Session (personal, per browser) -> shine:session : username string
    ========================================================================= */
 
 /* Accounts (90 LSA logins + admin) are seeded and stored server-side in KV — see functions/api/login.js */
+/* The admin account can browse every LSA's folders and forms directly from its own session — no per-folder password required. */
 
 let STATE = {
-  screen: 'loading',      // loading | login | dashboard | folder | form | parentGate | parentView
+  screen: 'loading',      // loading | login | dashboard | folder | form | admin | adminFolders | adminFormList | adminFormView | parentGate | parentView | parentFormView
   session: null,          // {username, name, isAdmin}
   accounts: null,
   userData: null,         // current logged-in user's data object
   currentFolderId: null,
   currentFormId: null,
+  adminTab: 'accounts',   // accounts | browse
+  adminUsername: null,    // LSA username currently being browsed by admin
+  adminData: null,        // that LSA's {folders:[...]}
+  adminFolderId: null,
+  adminFormId: null,
   parentToken: null,
-  parentUserData: null,
-  parentFormRef: null,    // {folder, form}
+  parentFolderRef: null,  // {studentName, forms:[...]}
+  parentCurrentFormId: null,
   toast: null,
 };
 
@@ -338,8 +347,8 @@ async function apiSaveUserData(data){
   const res = await fetch(API_BASE+'/userdata', {method:'POST', headers:authHeaders(), body:JSON.stringify(data)});
   return res.json();
 }
-async function apiGenerateLink(folderId, formId, regenerate){
-  const res = await fetch(API_BASE+'/link/generate', {method:'POST', headers:authHeaders(), body:JSON.stringify({folderId, formId, regenerate:!!regenerate})});
+async function apiGenerateLink(folderId, regenerate){
+  const res = await fetch(API_BASE+'/link/generate', {method:'POST', headers:authHeaders(), body:JSON.stringify({folderId, regenerate:!!regenerate})});
   return res.json();
 }
 async function apiResolveParent(token, password){
@@ -352,6 +361,10 @@ async function apiAdminGetAccounts(){
 }
 async function apiAdminUpdate(action, index, name){
   const res = await fetch(API_BASE+'/admin/accounts', {method:'POST', headers:authHeaders(), body:JSON.stringify({action, index, name})});
+  return res.json();
+}
+async function apiAdminGetLsaData(username){
+  const res = await fetch(API_BASE+'/admin/userdata?username='+encodeURIComponent(username), {headers:authHeaders()});
   return res.json();
 }
 
@@ -436,7 +449,7 @@ async function deleteFolder(id){
 }
 async function createForm(folderId){
   const folder = STATE.userData.folders.find(f=>f.id===folderId);
-  const form = { id:uid(), weekBeginning:'', createdAt:Date.now(), data: blankForm(), viewLink:null };
+  const form = { id:uid(), weekBeginning:'', createdAt:Date.now(), data: blankForm() };
   form.data.lsaNames = STATE.session.name;
   form.data.pupil = folder.studentName;
   folder.forms.push(form);
@@ -486,24 +499,22 @@ async function harvestAndSaveForm(){
   showToast('Saved');
 }
 
-/* ---------------- parent link ---------------- */
-async function generateOrShowLink(folderId, formId){
-  await harvestAndSaveForm();
-  const res = await apiGenerateLink(folderId, formId, false);
+/* ---------------- parent link (one static link + password per student folder) ---------------- */
+async function generateOrShowLink(folderId){
+  if(STATE.screen==='form') await harvestAndSaveForm();
+  const res = await apiGenerateLink(folderId, false);
   if(!res.ok){ showToast(res.error||'Could not generate link'); return; }
   const folder = STATE.userData.folders.find(f=>f.id===folderId);
-  const form = folder.forms.find(f=>f.id===formId);
-  form.viewLink = {token:res.token, password:res.password};
-  STATE._modal = {type:'link', folderId, formId, link:form.viewLink};
+  folder.viewLink = {token:res.token, password:res.password};
+  STATE._modal = {type:'link', folderId, link:folder.viewLink};
   render();
 }
-async function regenerateLink(folderId, formId){
-  const res = await apiGenerateLink(folderId, formId, true);
+async function regenerateLink(folderId){
+  const res = await apiGenerateLink(folderId, true);
   if(!res.ok){ showToast(res.error||'Could not generate link'); return; }
   const folder = STATE.userData.folders.find(f=>f.id===folderId);
-  const form = folder.forms.find(f=>f.id===formId);
-  form.viewLink = {token:res.token, password:res.password};
-  STATE._modal = {type:'link', folderId, formId, link:form.viewLink};
+  folder.viewLink = {token:res.token, password:res.password};
+  STATE._modal = {type:'link', folderId, link:folder.viewLink};
   render();
   showToast('New link generated — old link disabled');
 }
@@ -528,7 +539,8 @@ async function tryParentPassword(pw){
     render();
     return;
   }
-  STATE.parentFormRef = { folder:{studentName:res.studentName}, form:{data:res.data, weekBeginning:res.weekBeginning, id:'parent'} };
+  STATE.parentFolderRef = { studentName:res.studentName, forms:res.forms };
+  STATE.parentCurrentFormId = null;
   STATE.screen = 'parentView';
   render();
 }
@@ -670,8 +682,12 @@ function render(){
     case 'folder': html = renderShellWith(renderFolder()); break;
     case 'form': html = renderFormScreen(); break;
     case 'admin': html = renderShellWith(renderAdmin(), true); break;
+    case 'adminFolders': html = renderShellWith(renderAdminFolders(), true); break;
+    case 'adminFormList': html = renderShellWith(renderAdminFormList(), true); break;
+    case 'adminFormView': html = renderShellWith(renderAdminFormView(), true); break;
     case 'parentGate': html = renderParentGate(); break;
     case 'parentView': html = renderParentView(); break;
+    case 'parentFormView': html = renderParentFormView(); break;
     default: html = renderLoading();
   }
   app.innerHTML = html + (STATE.toast ? `<div class="toast">${esc(STATE.toast)}</div>` : '') + renderModal();
@@ -734,7 +750,7 @@ function renderDashboard(){
         <div class="folder-card">
           <div class="folder-icon">&#128193;</div>
           <div class="folder-name" onclick="openFolder('${f.id}')">${esc(f.studentName)}</div>
-          <div class="folder-meta">${f.forms.length} form${f.forms.length===1?'':'s'}</div>
+          <div class="folder-meta">${f.forms.length} form${f.forms.length===1?'':'s'} ${f.viewLink?'· <span class="badge">Parent link active</span>':''}</div>
           <div class="folder-actions">
             <button class="btn btn-ghost btn-sm" onclick="openFolder('${f.id}')">Open</button>
             <button class="btn btn-ghost btn-icon" title="Rename" onclick="openRenameFolderModal('${f.id}')">&#9998;</button>
@@ -755,12 +771,14 @@ function renderFolder(){
   return `
   <div class="breadcrumb"><button onclick="STATE.screen='dashboard';render();">&larr; All students</button></div>
   <div class="section-head">
-    <h2>${esc(folder.studentName)}</h2>
+    <h2>${esc(folder.studentName)} ${folder.viewLink?'<span class="badge">Parent link active</span>':''}</h2>
     <div style="display:flex;gap:8px;flex-wrap:wrap;">
       ${forms.length? `<button class="btn btn-ghost" onclick="downloadFolderZip(currentFolder())">Download all (ZIP)</button>`:''}
+      <button class="btn btn-primary" onclick="generateOrShowLink('${folder.id}')">Parent link</button>
       <button class="btn btn-primary" onclick="createForm('${folder.id}')">+ New form</button>
     </div>
   </div>
+  <p style="color:var(--ink-soft);font-size:13px;margin-top:-8px;">One link and password gives parents access to every form in this folder. Send it once — new forms appear automatically.</p>
   ${forms.length===0 ? `
     <div class="empty-state">
       <div class="big">No forms yet for ${esc(folder.studentName)}</div>
@@ -772,12 +790,11 @@ function renderFolder(){
         <div class="form-row">
           <div class="form-row-main" onclick="openForm('${folder.id}','${f.id}')">
             <div class="form-row-title">Week beginning: ${f.weekBeginning?fmtDate(f.weekBeginning):'(not set)'}</div>
-            <div class="form-row-sub">Created ${new Date(f.createdAt).toLocaleDateString('en-GB')} ${f.viewLink?'· <span class=\"badge\">Parent link active</span>':''}</div>
+            <div class="form-row-sub">Created ${new Date(f.createdAt).toLocaleDateString('en-GB')}</div>
           </div>
           <div class="form-row-actions">
             <button class="btn btn-ghost btn-sm" onclick="openForm('${folder.id}','${f.id}')">Open</button>
             <button class="btn btn-ghost btn-sm" onclick="downloadFormPdf(currentFolder().forms.find(x=>x.id==='${f.id}').data,'${esc(folder.studentName)} - Week ${f.weekBeginning||f.id}.pdf')">Download PDF</button>
-            <button class="btn btn-ghost btn-sm" onclick="generateOrShowLink('${folder.id}','${f.id}')">Parent link</button>
             <select class="small-select" onchange="if(this.value){moveForm('${folder.id}','${f.id}',this.value); this.value='';}">
               <option value="">Move to…</option>
               ${STATE.userData.folders.filter(x=>x.id!==folder.id).map(x=>`<option value="${x.id}">${esc(x.studentName)}</option>`).join('')}
@@ -859,7 +876,7 @@ function renderFormScreen(){
     <div class="actions">
       <button class="btn btn-navy" onclick="harvestAndSaveForm()">Save</button>
       <button class="btn btn-ghost" style="color:#fff;border-color:rgba(255,255,255,.4);" onclick="harvestAndSaveThenPdf()">Download PDF</button>
-      <button class="btn btn-primary" onclick="generateOrShowLink('${folder.id}','${form.id}')">Parent link</button>
+      <button class="btn btn-primary" onclick="generateOrShowLink('${folder.id}')">Parent link</button>
     </div>
   </div>
   <div class="sheet-wrap">
@@ -908,9 +925,17 @@ async function harvestAndSaveThenPdf(){
 }
 
 function renderAdmin(){
-  const acc = STATE.accounts;
   return `
   <div class="section-head"><h2>Administrator</h2></div>
+  <div style="display:flex;gap:8px;margin-bottom:18px;border-bottom:1px solid var(--line);">
+    <button class="btn ${STATE.adminTab==='accounts'?'btn-navy':'btn-ghost'} btn-sm" onclick="STATE.adminTab='accounts';render();">LSA accounts</button>
+    <button class="btn ${STATE.adminTab==='browse'?'btn-navy':'btn-ghost'} btn-sm" onclick="STATE.adminTab='browse';render();">Browse all folders &amp; forms</button>
+  </div>
+  ${STATE.adminTab==='browse' ? renderAdminBrowseTab() : renderAdminAccountsTab()}`;
+}
+function renderAdminAccountsTab(){
+  const acc = STATE.accounts;
+  return `
   <p style="color:var(--ink-soft);font-size:14px;">Distribute one set of credentials to each Learning Support Assistant. Anyone signing in with these can create student folders, forms and parent links.</p>
   <div style="display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap;">
     <button class="btn btn-navy" onclick="exportAccountsCsv()">Export credentials (CSV)</button>
@@ -927,6 +952,88 @@ function renderAdmin(){
         </tr>`).join('')}
     </table>
   </div>`;
+}
+function renderAdminBrowseTab(){
+  const acc = STATE.accounts;
+  return `
+  <p style="color:var(--ink-soft);font-size:14px;">View any LSA's student folders and forms directly — no parent link or password needed.</p>
+  <div class="folder-grid">
+    ${acc.lsas.map(l=>`
+      <div class="folder-card">
+        <div class="folder-icon">&#128100;</div>
+        <div class="folder-name" onclick="openAdminLsa('${esc(l.username)}')">${esc(l.name||l.username)}</div>
+        <div class="folder-meta">${esc(l.username)}</div>
+        <div class="folder-actions">
+          <button class="btn btn-ghost btn-sm" onclick="openAdminLsa('${esc(l.username)}')">View folders</button>
+        </div>
+      </div>
+    `).join('')}
+  </div>`;
+}
+async function openAdminLsa(username){
+  const res = await apiAdminGetLsaData(username);
+  if(!res.ok){ showToast(res.error||'Could not load LSA data'); return; }
+  STATE.adminUsername = username;
+  STATE.adminData = res.data;
+  STATE.adminFolderId = null;
+  STATE.adminFormId = null;
+  STATE.screen = 'adminFolders';
+  render();
+}
+function renderAdminFolders(){
+  const folders = STATE.adminData.folders;
+  return `
+  <div class="breadcrumb"><button onclick="STATE.adminTab='browse';STATE.screen='admin';render();">&larr; All LSAs</button></div>
+  <div class="section-head"><h2>${esc(STATE.adminUsername)}'s students</h2></div>
+  ${folders.length===0 ? `
+    <div class="empty-state"><div class="big">No student folders yet</div></div>` : `
+    <div class="folder-grid">
+      ${folders.map(f=>`
+        <div class="folder-card">
+          <div class="folder-icon">&#128193;</div>
+          <div class="folder-name" onclick="openAdminFolder('${f.id}')">${esc(f.studentName)}</div>
+          <div class="folder-meta">${f.forms.length} form${f.forms.length===1?'':'s'} ${f.viewLink?'· <span class="badge">Parent link active</span>':''}</div>
+          <div class="folder-actions"><button class="btn btn-ghost btn-sm" onclick="openAdminFolder('${f.id}')">Open</button></div>
+        </div>
+      `).join('')}
+    </div>
+  `}`;
+}
+function openAdminFolder(folderId){ STATE.adminFolderId = folderId; STATE.adminFormId = null; STATE.screen = 'adminFormList'; render(); }
+function adminCurrentFolder(){ return STATE.adminData.folders.find(f=>f.id===STATE.adminFolderId); }
+function renderAdminFormList(){
+  const folder = adminCurrentFolder();
+  if(!folder){ STATE.screen='adminFolders'; render(); return ''; }
+  const forms = folder.forms.slice().sort((a,b)=>b.createdAt-a.createdAt);
+  return `
+  <div class="breadcrumb"><button onclick="STATE.screen='adminFolders';render();">&larr; ${esc(STATE.adminUsername)}'s students</button></div>
+  <div class="section-head"><h2>${esc(folder.studentName)}</h2></div>
+  ${forms.length===0 ? `
+    <div class="empty-state"><div class="big">No forms yet</div></div>` : `
+    <div class="form-list">
+      ${forms.map(f=>`
+        <div class="form-row">
+          <div class="form-row-main" onclick="openAdminForm('${f.id}')">
+            <div class="form-row-title">Week beginning: ${f.weekBeginning?fmtDate(f.weekBeginning):'(not set)'}</div>
+            <div class="form-row-sub">Created ${new Date(f.createdAt).toLocaleDateString('en-GB')}</div>
+          </div>
+          <div class="form-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openAdminForm('${f.id}')">View</button>
+            <button class="btn btn-ghost btn-sm" onclick="downloadFormPdf(adminCurrentFolder().forms.find(x=>x.id==='${f.id}').data,'${esc(folder.studentName)} - Week ${f.weekBeginning||f.id}.pdf')">Download PDF</button>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `}`;
+}
+function openAdminForm(formId){ STATE.adminFormId = formId; STATE.screen = 'adminFormView'; render(); }
+function renderAdminFormView(){
+  const folder = adminCurrentFolder();
+  const form = folder ? folder.forms.find(f=>f.id===STATE.adminFormId) : null;
+  if(!folder || !form){ STATE.screen='adminFolders'; render(); return ''; }
+  return `
+  <div class="breadcrumb"><button onclick="STATE.screen='adminFormList';render();">&larr; ${esc(folder.studentName)}'s forms</button></div>
+  <div class="sheet-wrap" style="margin:0;padding:0;">${renderStaticSheet(form.data)}</div>`;
 }
 async function renameLsa(i, name){
   const res = await apiAdminUpdate('rename', i, name);
@@ -965,11 +1072,44 @@ function renderParentGate(){
 }
 
 function renderParentView(){
-  const {folder, form} = STATE.parentFormRef;
+  const {studentName, forms} = STATE.parentFolderRef;
   return `
   <div class="topbar">
     <div class="brand-wrap"><div class="brand">Shine<span>.</span></div><div class="subtitle">Daily Feedback Form — Parent View</div></div>
-    <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="downloadFormPdf(STATE.parentFormRef.form.data, '${esc(folder.studentName)} - Week ${form.weekBeginning||form.id}.pdf')">Download PDF</button></div>
+  </div>
+  <div class="page">
+    <div class="section-head"><h2>${esc(studentName)}</h2></div>
+    ${forms.length===0 ? `
+      <div class="empty-state"><div class="big">No forms yet</div><div>Check back once the LSA has added a feedback form.</div></div>` : `
+      <div class="form-list">
+        ${forms.map(f=>`
+          <div class="form-row">
+            <div class="form-row-main" onclick="openParentForm('${f.id}')">
+              <div class="form-row-title">Week beginning: ${f.weekBeginning?fmtDate(f.weekBeginning):'(not set)'}</div>
+              <div class="form-row-sub">Added ${new Date(f.createdAt).toLocaleDateString('en-GB')}</div>
+            </div>
+            <div class="form-row-actions">
+              <button class="btn btn-ghost btn-sm" onclick="openParentForm('${f.id}')">View</button>
+              <button class="btn btn-ghost btn-sm" onclick="downloadFormPdf(STATE.parentFolderRef.forms.find(x=>x.id==='${f.id}').data,'${esc(studentName)} - Week ${f.weekBeginning||f.id}.pdf')">Download PDF</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `}
+  </div>`;
+}
+function openParentForm(formId){ STATE.parentCurrentFormId = formId; STATE.screen = 'parentFormView'; render(); }
+function renderParentFormView(){
+  const {studentName, forms} = STATE.parentFolderRef;
+  const form = forms.find(f=>f.id===STATE.parentCurrentFormId);
+  if(!form){ STATE.screen='parentView'; render(); return ''; }
+  return `
+  <div class="topbar">
+    <div class="brand-wrap"><div class="brand">Shine<span>.</span></div><div class="subtitle">Daily Feedback Form — Parent View</div></div>
+    <div class="topbar-right"><button class="btn btn-primary btn-sm" onclick="downloadFormPdf(STATE.parentFolderRef.forms.find(x=>x.id==='${form.id}').data,'${esc(studentName)} - Week ${form.weekBeginning||form.id}.pdf')">Download PDF</button></div>
+  </div>
+  <div class="page" style="max-width:960px;">
+    <div class="breadcrumb"><button onclick="STATE.screen='parentView';render();">&larr; All forms for ${esc(studentName)}</button></div>
   </div>
   <div class="sheet-wrap">${renderStaticSheet(form.data)}</div>`;
 }
@@ -1016,12 +1156,12 @@ function renderModal(){
     const url = buildLinkUrl(m.link.token);
     return `<div class="modal-backdrop" onclick="if(event.target===this) closeModal()"><div class="modal">
       <h3>Parent view link</h3>
-      <p style="color:var(--ink-soft);font-size:13.5px;">Share this link and password with the parent. They will be able to view (and download) the form, but not edit it.</p>
+      <p style="color:var(--ink-soft);font-size:13.5px;">Share this link and password with the parent once. It stays the same and gives them access to every form in this student's folder, including new ones added later.</p>
       <div class="copy-box"><span class="val" style="word-break:break-all;">${esc(url)}</span><button class="btn btn-ghost btn-sm" onclick="copyText('${url}')">Copy</button></div>
       <div class="pw-display">${esc(m.link.password)}</div>
       <div style="text-align:center;"><button class="btn btn-ghost btn-sm" onclick="copyText('${m.link.password}')">Copy password</button></div>
       <div class="modal-actions">
-        <button class="btn btn-ghost" onclick="regenerateLink('${m.folderId}','${m.formId}')">Generate new link</button>
+        <button class="btn btn-ghost" onclick="regenerateLink('${m.folderId}')">Generate new link</button>
         <button class="btn btn-primary" onclick="closeModal()">Done</button>
       </div>
     </div></div>`;
